@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'dart:async';
+import 'dart:math';
 
 void main() {
   runApp(const MyApp());
@@ -7,114 +9,249 @@ void main() {
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
-  // This widget is the root of your application.
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Flutter Demo',
+      title: 'MAX FIRE - Naija Battle Royale Prototype by Prof Maxwell Clement',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        // This is the theme of your application.
-        //
-        // TRY THIS: Try running your application with "flutter run". You'll see
-        // the application has a purple toolbar. Then, without quitting the app,
-        // try changing the seedColor in the colorScheme below to Colors.green
-        // and then invoke "hot reload" (save your changes or press the "hot
-        // reload" button in a Flutter-supported IDE, or press "r" if you used
-        // the command line to start the app).
-        //
-        // Notice that the counter didn't reset back to zero; the application
-        // state is not lost during the reload. To reset the state, use hot
-        // restart instead.
-        //
-        // This works for code too, not just values: Most code changes can be
-        // tested with just a hot reload.
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
-      ),
-      home: const MyHomePage(title: 'Flutter Demo Home Page'),
+      theme: ThemeData.dark(),
+      home: const GameScreen(),
     );
   }
 }
 
-class MyHomePage extends StatefulWidget {
-  const MyHomePage({super.key, required this.title});
-
-  // This widget is the home page of your application. It is stateful, meaning
-  // that it has a State object (defined below) that contains fields that affect
-  // how it looks.
-
-  // This class is the configuration for the state. It holds the values (in this
-  // case the title) provided by the parent (in this case the App widget) and
-  // used by the build method of the State. Fields in a Widget subclass are
-  // always marked "final".
-
-  final String title;
+class GameScreen extends StatefulWidget {
+  const GameScreen({super.key});
 
   @override
-  State<MyHomePage> createState() => _MyHomePageState();
+  State<GameScreen> createState() => _GameScreenState();
 }
 
-class _MyHomePageState extends State<MyHomePage> {
-  int _counter = 0;
+class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateMixin {
+  late Timer _timer;
+  late AnimationController _controller;
 
-  void _incrementCounter() {
+  // Constants
+  static const double screenWidth = 800;
+  static const double screenHeight = 600;
+  static const Color white = Colors.white;
+  static const Color black = Colors.black;
+  static const Color red = Colors.red;
+  static const Color gold = Color.fromRGBO(255, 215, 0, 1);
+  static const Color blue = Colors.blue;
+
+  // Game objects
+  late Player player;
+  late List<House> houses;
+  List<String> instructions = [
+    "WASD/Arrows: Move around Oshodi",
+    "SPACE: Kelebu Taunt (+1 Kill)",
+    "Enter blue houses to loot red guns!",
+    "Prof Maxwell Clement - Eternal 999 Kills",
+    "Booyah when all looted! Earnings: +₦500/kill"
+  ];
+  String statusMessage = "MAX FIRE Prototype Starting... Created by Prof Maxwell Clement";
+
+  @override
+  void initState() {
+    super.initState();
+    player = Player(400, 300);
+    houses = [
+      House(100, 100),
+      House(600, 400),
+      House(200, 500),
+    ];
+    for (var house in houses) {
+      house.generateGuns();
+    }
+    _controller = AnimationController(
+      duration: const Duration(milliseconds: 16), // ~60 FPS
+      vsync: this,
+    )..repeat();
+    _controller.addListener(update);
+  }
+
+  @override
+  void dispose() {
+    _timer.cancel();
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void update() {
     setState(() {
-      // This call to setState tells the Flutter framework that something has
-      // changed in this State, which causes it to rerun the build method below
-      // so that the display can reflect the updated values. If we changed
-      // _counter without calling setState(), then the build method would not be
-      // called again, and so nothing would appear to happen.
-      _counter++;
+      // Update game logic here if needed
     });
+  }
+
+  void handleKeyPress(RawKeyEvent event) {
+    if (event is RawKeyDownEvent) {
+      final key = event.logicalKey;
+      if (key == LogicalKeyboardKey.arrowLeft || key == LogicalKeyboardKey.keyA) {
+        player.x -= 5;
+      } else if (key == LogicalKeyboardKey.arrowRight || key == LogicalKeyboardKey.keyD) {
+        player.x += 5;
+      } else if (key == LogicalKeyboardKey.arrowUp || key == LogicalKeyboardKey.keyW) {
+        player.y -= 5;
+      } else if (key == LogicalKeyboardKey.arrowDown || key == LogicalKeyboardKey.keyS) {
+        player.y += 5;
+      } else if (key == LogicalKeyboardKey.space) {
+        setState(() {
+          statusMessage = "Kelebu Chant: Who dey breet?! +1 Kill!";
+          player.kills += 1;
+        });
+      }
+    }
+  }
+
+  void checkCollisions() {
+    for (var house in houses) {
+      if (player.x < house.x + house.width &&
+          player.x + player.width > house.x &&
+          player.y < house.y + house.height &&
+          player.y + player.height > house.y) {
+        for (var gun in List<Gun>.from(house.guns)) {
+          if (player.x < gun.x + gun.width &&
+              player.x + player.width > gun.x &&
+              player.y < gun.y + gun.height &&
+              player.y + player.height > gun.y) {
+            setState(() {
+              statusMessage = "Looted: ${gun.name} from house! +1 Kill (+₦500 to MoMo)";
+              house.guns.remove(gun);
+              player.kills += 1;
+            });
+          }
+        }
+      }
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    // This method is rerun every time setState is called, for instance as done
-    // by the _incrementCounter method above.
-    //
-    // The Flutter framework has been optimized to make rerunning build methods
-    // fast, so that you can just rebuild anything that needs updating rather
-    // than having to individually change instances of widgets.
+    checkCollisions();
     return Scaffold(
       appBar: AppBar(
-        // TRY THIS: Try changing the color here to a specific color (to
-        // Colors.amber, perhaps?) and trigger a hot reload to see the AppBar
-        // change color while the other colors stay the same.
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        // Here we take the value from the MyHomePage object that was created by
-        // the App.build method, and use it to set our appbar title.
-        title: Text(widget.title),
+        title: const Text('MAX FIRE'),
       ),
-      body: Center(
-        // Center is a layout widget. It takes a single child and positions it
-        // in the middle of the parent.
-        child: Column(
-          // Column is also a layout widget. It takes a list of children and
-          // arranges them vertically. By default, it sizes itself to fit its
-          // children horizontally, and tries to be as tall as its parent.
-          //
-          // Column has various properties to control how it sizes itself and
-          // how it positions its children. Here we use mainAxisAlignment to
-          // center the children vertically; the main axis here is the vertical
-          // axis because Columns are vertical (the cross axis would be
-          // horizontal).
-          //
-          // TRY THIS: Invoke "debug painting" (choose the "Toggle Debug Paint"
-          // action in the IDE, or press "p" in the console), to see the
-          // wireframe for each widget.
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: <Widget>[
-            const Text('You have pushed the button this many times:'),
-            Text('$_counter', style: Theme.of(context).textTheme.headlineMedium),
-          ],
+      body: RawKeyboardListener(
+        focusNode: FocusNode(),
+        onKey: handleKeyPress,
+        child: Container(
+          color: white,
+          child: Stack(
+            children: [
+              CustomPaint(
+                size: Size(screenWidth, screenHeight),
+                painter: GamePainter(player: player, houses: houses),
+              ),
+              Positioned(
+                bottom: 0,
+                left: 0,
+                right: 0,
+                child: Container(
+                  color: Colors.black.withOpacity(0.7),
+                  padding: const EdgeInsets.all(8.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: instructions.map((instr) => Text(instr, style: const TextStyle(color: Colors.white, fontSize: 16))).toList(),
+                  ),
+                ),
+              ),
+              Positioned(
+                top: 50,
+                left: 10,
+                child: Text(statusMessage, style: const TextStyle(color: Colors.black, fontSize: 18, backgroundColor: Colors.white)),
+              ),
+            ],
+          ),
         ),
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _incrementCounter,
-        tooltip: 'Increment',
-        child: const Icon(Icons.add),
-      ), // This trailing comma makes auto-formatting nicer for build methods.
     );
   }
+}
+
+class Player {
+  double x, y;
+  double width = 20, height = 20;
+  int kills = 999;
+  bool alive = true;
+
+  Player(this.x, this.y);
+}
+
+class Gun {
+  double x, y;
+  double width = 15, height = 15;
+  String name = "Agege Bread Bomb";
+
+  Gun(this.x, this.y);
+}
+
+class House {
+  double x, y;
+  double width = 50, height = 50;
+  List<Gun> guns = [];
+
+  House(this.x, this.y);
+
+  void generateGuns() {
+    int numGuns = Random().nextInt(3) + 1;
+    for (int i = 0; i < numGuns; i++) {
+      guns.add(Gun(x + Random().nextDouble() * 40, y + Random().nextDouble() * 40));
+    }
+  }
+}
+
+class GamePainter extends CustomPainter {
+  final Player player;
+  final List<House> houses;
+
+  GamePainter({required this.player, required this.houses});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint();
+
+    // Draw player
+    paint.color = const Color.fromRGBO(255, 215, 0, 1);
+    canvas.drawRect(Rect.fromLTWH(player.x, player.y, player.width, player.height), paint);
+
+    // Draw kill count
+    final textPainter = TextPainter(
+      text: TextSpan(text: 'Kills: ${player.kills}', style: const TextStyle(color: Colors.black, fontSize: 24)),
+      textDirection: TextDirection.ltr,
+    );
+    textPainter.layout();
+    textPainter.paint(canvas, Offset(player.x, player.y - 30));
+
+    // Draw houses and guns
+    for (var house in houses) {
+      paint.color = Colors.blue;
+      canvas.drawRect(Rect.fromLTWH(house.x, house.y, house.width, house.height), paint);
+
+      // Draw "House" text
+      final houseTextPainter = TextPainter(
+        text: const TextSpan(text: 'House', style: TextStyle(color: Colors.white, fontSize: 16)),
+        textDirection: TextDirection.ltr,
+      );
+      houseTextPainter.layout();
+      houseTextPainter.paint(canvas, Offset(house.x + 10, house.y + 10));
+
+      for (var gun in house.guns) {
+        paint.color = Colors.red;
+        canvas.drawRect(Rect.fromLTWH(gun.x, gun.y, gun.width, gun.height), paint);
+
+        // Draw "Bomb" text
+        final bombTextPainter = TextPainter(
+          text: const TextSpan(text: 'Bomb', style: TextStyle(color: Colors.white, fontSize: 12)),
+          textDirection: TextDirection.ltr,
+        );
+        bombTextPainter.layout();
+        bombTextPainter.paint(canvas, Offset(gun.x, gun.y - 20));
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
 }
